@@ -38,3 +38,12 @@ class PermanentProcessingError(ProcessingError):
 
 class TransientProcessingError(ProcessingError):
     """Temporary failure (DB, network, timeout, webhook 5xx/408/429) -> retry."""
+
+
+class PaymentMissing(PermanentProcessingError):
+    """A payment event refers to a payment that does not exist (consumer side; the API uses
+    PaymentNotFound). Payments are never deleted, so a retry cannot help."""
+
+    def __init__(self, payment_id: UUID) -> None:
+        super().__init__(f"payment {payment_id} does not exist")
+        self.payment_id = payment_id

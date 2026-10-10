@@ -14,6 +14,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.application.ports.uow import StorageUnavailable
 from app.domain.exceptions import IdempotencyConflict, InvalidPaymentData, PaymentNotFound
 
 logger = logging.getLogger(__name__)
@@ -82,6 +83,17 @@ async def _request_validation(request: Request, exc: Exception) -> JSONResponse:
     )
 
 
+async def _storage_unavailable(request: Request, exc: Exception) -> JSONResponse:
+    # The database is down or restarting: the client may retry with the same Idempotency-Key.
+    logger.warning("database unavailable method=%s path=%s", request.method, request.url.path)
+    return error_response(
+        status.HTTP_503_SERVICE_UNAVAILABLE,
+        "service_unavailable",
+        "Service temporarily unavailable, retry later",
+        headers={"Retry-After": "1"},
+    )
+
+
 _HTTP_CODES = {
     status.HTTP_404_NOT_FOUND: "not_found",
     status.HTTP_405_METHOD_NOT_ALLOWED: "method_not_allowed",
@@ -115,6 +127,7 @@ def register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(PaymentNotFound, _payment_not_found)
     app.add_exception_handler(IdempotencyConflict, _idempotency_conflict)
     app.add_exception_handler(InvalidPaymentData, _invalid_payment_data)
+    app.add_exception_handler(StorageUnavailable, _storage_unavailable)
     app.add_exception_handler(RequestValidationError, _request_validation)
     app.add_exception_handler(StarletteHTTPException, _http_exception)
     # Exception is handled by Starlette's ServerErrorMiddleware (which then re-raises it,

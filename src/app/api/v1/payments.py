@@ -25,6 +25,10 @@ _COMMON_RESPONSES: dict[int | str, dict[str, Any]] = {
         "model": ErrorResponse,
         "description": "Unexpected error (details are only in the server log)",
     },
+    status.HTTP_503_SERVICE_UNAVAILABLE: {
+        "model": ErrorResponse,
+        "description": "Database temporarily unavailable; retry with the same Idempotency-Key",
+    },
 }
 
 router = APIRouter(

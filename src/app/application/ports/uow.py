@@ -5,6 +5,15 @@ from types import TracebackType
 from typing import Protocol, Self
 
 from app.application.ports.repositories import OutboxRepository, PaymentRepository
+from app.domain.exceptions import TransientProcessingError
+
+
+class StorageUnavailable(TransientProcessingError):
+    """The database could not be reached or the connection broke mid-transaction.
+
+    Raised by the unit of work instead of driver errors; the transaction was rolled back.
+    The consumer retries the message, the API answers 503.
+    """
 
 
 class UnitOfWork(Protocol):
@@ -23,7 +32,10 @@ class UnitOfWork(Protocol):
         exc: BaseException | None,
         tb: TracebackType | None,
     ) -> None:
-        """Rolls back unless commit() was called; always closes the session."""
+        """Rolls back unless commit() was called; always closes the session.
+
+        Connection-level failures inside the block surface as StorageUnavailable.
+        """
         ...
 
     async def commit(self) -> None: ...

@@ -14,8 +14,9 @@ from app.application.errors import EventRejected, StorageUnavailable, WebhookUna
 from app.application.outbox_relay import OutboxRelay
 from app.domain.outbox import OutboxMessage
 from app.infrastructure.broker.connection import make_broker
+from app.infrastructure.broker.failure_headers import Delivery
 from app.infrastructure.broker.publisher import RabbitEventPublisher
-from app.infrastructure.broker.retry import Delivery, FailureRouter
+from app.infrastructure.broker.retry import FailureRouter
 from app.infrastructure.broker.topology import (
     DLQ,
     PAYMENTS_QUEUE,

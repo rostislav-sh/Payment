@@ -8,12 +8,12 @@ from faststream.rabbit import RabbitBroker, RabbitExchange
 
 from app.application.errors import BrokerUnavailable, WebhookRejected, WebhookUnavailable
 from app.infrastructure.broker import retry as retry_module
-from app.infrastructure.broker.retry import (
+from app.infrastructure.broker.failure_headers import (
     MAX_ERROR_ENTRIES,
     MAX_ERROR_ENTRY_LENGTH,
     Delivery,
-    FailureRouter,
 )
+from app.infrastructure.broker.retry import FailureRouter
 from app.infrastructure.broker.topology import DLX_EXCHANGE, MAX_RETRIES, RETRY_EXCHANGE
 
 Published = dict[str, Any]

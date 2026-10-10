@@ -8,6 +8,7 @@ idempotent (the payment consumer is).
 import logging
 
 from app.application.clock import Clock, utc_now
+from app.application.error_text import describe_error
 from app.application.errors import BrokerUnavailable, EventRejected
 from app.application.ports.publisher import EventPublisher
 from app.application.ports.uow import UnitOfWorkFactory
@@ -55,20 +56,22 @@ class OutboxRelay:
                     await self._publisher.publish(message)
                 except EventRejected as exc:
                     failed += 1
-                    await uow.outbox.register_failure(message.id, _describe(exc))
+                    await uow.outbox.register_failure(message.id, describe_error(exc))
                     logger.warning(
-                        "outbox event rejected message_id=%s error=%s", message.id, _describe(exc)
+                        "outbox event rejected message_id=%s error=%s",
+                        message.id,
+                        describe_error(exc),
                     )
                 except BrokerUnavailable as exc:
                     # The rest of the batch would fail the same way: stop and let the caller
                     # back off. Unattempted events are simply picked up next time.
                     failed += 1
                     aborted = True
-                    await uow.outbox.register_failure(message.id, _describe(exc))
+                    await uow.outbox.register_failure(message.id, describe_error(exc))
                     logger.warning(
                         "broker unavailable, batch stopped message_id=%s error=%s",
                         message.id,
-                        _describe(exc),
+                        describe_error(exc),
                     )
                     break
                 except Exception as exc:
@@ -77,7 +80,7 @@ class OutboxRelay:
                     # republished on every run.
                     failed += 1
                     aborted = True
-                    await uow.outbox.register_failure(message.id, _describe(exc))
+                    await uow.outbox.register_failure(message.id, describe_error(exc))
                     logger.exception(
                         "unexpected publish error, batch stopped message_id=%s", message.id
                     )
@@ -96,9 +99,3 @@ class OutboxRelay:
             failed=failed,
             aborted=aborted,
         )
-
-
-def _describe(exc: Exception) -> str:
-    cause = exc.__cause__
-    detail = f"{type(cause).__name__}: {cause}" if cause is not None else str(exc)
-    return f"{type(exc).__name__}: {detail}"

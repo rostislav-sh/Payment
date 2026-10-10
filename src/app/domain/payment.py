@@ -7,6 +7,7 @@ from typing import Any, Self
 
 from app.domain.commands import CreatePaymentCommand
 from app.domain.enums import FINAL_STATUSES, Currency, PaymentStatus
+from app.domain.exceptions import NaiveDatetime
 from app.domain.money import to_cents
 
 
@@ -28,7 +29,7 @@ class Payment:
     @classmethod
     def new(cls, cmd: CreatePaymentCommand, request_hash: str, now: datetime) -> Self:
         if now.utcoffset() is None:
-            raise ValueError("now must be timezone-aware")
+            raise NaiveDatetime("now must be timezone-aware")
         return cls(
             # uuid7 is time-ordered: friendlier to the B-tree primary key than uuid4.
             id=uuid.uuid7(),

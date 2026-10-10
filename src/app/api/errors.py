@@ -26,6 +26,10 @@ class Unauthorized(Exception):
     """The X-API-Key header is missing or does not match."""
 
 
+class EmptyApiKey(ValueError):
+    """create_app() got an empty API key: every request would be rejected (startup error)."""
+
+
 def error_response(
     status_code: int,
     code: str,

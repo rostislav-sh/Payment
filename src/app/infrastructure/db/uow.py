@@ -3,30 +3,11 @@
 from types import TracebackType
 from typing import Self
 
-from sqlalchemy import exc as sa_exc
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.application.errors import StorageUnavailable
+from app.infrastructure.db.errors import is_connection_error
 from app.infrastructure.db.repositories import SqlOutboxRepository, SqlPaymentRepository
-
-
-def _is_connection_error(error: BaseException) -> bool:
-    """Errors a later attempt can fix: the database is down, restarting or unreachable.
-
-    Integrity/programming/data errors are bugs and are deliberately not included.
-    """
-    if isinstance(error, sa_exc.DBAPIError) and error.connection_invalidated:
-        return True
-    return isinstance(
-        error,
-        (
-            sa_exc.OperationalError,
-            sa_exc.InterfaceError,
-            sa_exc.TimeoutError,  # connection pool exhausted
-            OSError,  # asyncpg connect errors arrive unwrapped
-            TimeoutError,
-        ),
-    )
 
 
 class SqlUnitOfWork:
@@ -54,9 +35,10 @@ class SqlUnitOfWork:
         tb: TracebackType | None,
     ) -> None:
         # close() rolls back whatever was not committed and returns the connection to the
-        # pool; a failure here never masks the original exception from the block.
+        # pool. If close() itself fails, its error propagates and the block's exception
+        # stays only in __context__ (unlikely: close() tolerates broken connections).
         await self._active_session().close()
-        if exc is not None and _is_connection_error(exc):
+        if exc is not None and is_connection_error(exc):
             raise StorageUnavailable(f"database unavailable: {type(exc).__name__}") from exc
 
     async def commit(self) -> None:

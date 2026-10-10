@@ -2,10 +2,8 @@
 constraint and index gets a deterministic name in migrations."""
 
 import uuid
-from collections.abc import Iterable
 from datetime import datetime
 from decimal import Decimal
-from enum import StrEnum
 from typing import Any
 
 from sqlalchemy import (
@@ -28,6 +26,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from app.domain.enums import Currency, PaymentStatus
+from app.infrastructure.db.constraints import in_list
 
 NAMING_CONVENTION = {
     "ix": "ix_%(column_0_label)s",
@@ -42,17 +41,12 @@ class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 
-def _in_list(column: str, values: Iterable[StrEnum]) -> str:
-    """SQL for ``column IN (...)`` built from enum values, so literals are not duplicated."""
-    return f"{column} IN ({', '.join(f"'{v.value}'" for v in values)})"
-
-
 class PaymentModel(Base):
     __tablename__ = "payments"
     __table_args__ = (
         CheckConstraint("amount > 0", name="amount_positive"),
-        CheckConstraint(_in_list("currency", Currency), name="currency_valid"),
-        CheckConstraint(_in_list("status", PaymentStatus), name="status_valid"),
+        CheckConstraint(in_list("currency", Currency), name="currency_valid"),
+        CheckConstraint(in_list("status", PaymentStatus), name="status_valid"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)

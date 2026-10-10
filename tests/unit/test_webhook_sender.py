@@ -10,7 +10,8 @@ from app.application.errors import WebhookRejected, WebhookUnavailable
 from app.domain.enums import PaymentStatus
 from app.domain.payment import Payment
 from app.infrastructure.gateway import EmulatedGateway
-from app.infrastructure.webhook import HttpWebhookSender, build_payload
+from app.infrastructure.webhook import HttpWebhookSender
+from app.infrastructure.webhook_contract import build_payload
 from tests.unit.support import CMD, NOW
 
 URL = "https://client.example/hook"

@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.api import health
-from app.api.errors import register_error_handlers
+from app.api.errors import EmptyApiKey, register_error_handlers
 from app.api.v1 import payments
 from app.core.config import get_api_settings, get_database_settings, get_logging_settings
 from app.core.logging import setup_logging
@@ -24,7 +24,7 @@ def create_app(*, api_key: str | None = None, engine: AsyncEngine | None = None)
     if api_key is None:
         api_key = get_api_settings().api_key.get_secret_value()
     if not api_key:
-        raise ValueError("API key must not be empty")
+        raise EmptyApiKey("API key must not be empty")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:

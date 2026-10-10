@@ -2,10 +2,9 @@
 
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import CursorResult, Select, Update, select, update
+from sqlalchemy import Select, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +12,7 @@ from app.domain.enums import FINAL_STATUSES, PaymentStatus
 from app.domain.exceptions import InvalidStatusTransition
 from app.domain.outbox import OutboxMessage
 from app.domain.payment import Payment
+from app.infrastructure.db.execution import execute_update
 from app.infrastructure.db.mappers import (
     outbox_from_model,
     outbox_to_model,
@@ -22,12 +22,6 @@ from app.infrastructure.db.mappers import (
 from app.infrastructure.db.models import OutboxModel, PaymentModel
 
 MAX_ERROR_LENGTH = 1000
-
-
-async def _execute_update(session: AsyncSession, stmt: Update) -> int:
-    """Run a bulk UPDATE without touching the identity map; return the affected row count."""
-    result = await session.execute(stmt.execution_options(synchronize_session=False))
-    return cast(CursorResult[Any], result).rowcount
 
 
 class SqlPaymentRepository:
@@ -69,7 +63,7 @@ class SqlPaymentRepository:
             )
             .values(status=status.value, processed_at=processed_at)
         )
-        return await _execute_update(self._session, stmt) == 1
+        return await execute_update(self._session, stmt) == 1
 
     async def mark_webhook_sent(self, payment_id: UUID, sent_at: datetime) -> bool:
         stmt = (
@@ -77,7 +71,7 @@ class SqlPaymentRepository:
             .where(PaymentModel.id == payment_id, PaymentModel.webhook_sent_at.is_(None))
             .values(webhook_sent_at=sent_at)
         )
-        return await _execute_update(self._session, stmt) == 1
+        return await execute_update(self._session, stmt) == 1
 
 
 class SqlOutboxRepository:
@@ -109,7 +103,7 @@ class SqlOutboxRepository:
         if not ids:
             return
         stmt = update(OutboxModel).where(OutboxModel.id.in_(ids)).values(published_at=published_at)
-        await _execute_update(self._session, stmt)
+        await execute_update(self._session, stmt)
 
     async def register_failure(self, message_id: int, error: str) -> None:
         stmt = (
@@ -117,4 +111,4 @@ class SqlOutboxRepository:
             .where(OutboxModel.id == message_id)
             .values(attempts=OutboxModel.attempts + 1, last_error=error[:MAX_ERROR_LENGTH])
         )
-        await _execute_update(self._session, stmt)
+        await execute_update(self._session, stmt)

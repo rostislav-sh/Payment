@@ -8,7 +8,7 @@ import pytest
 
 from app.domain.commands import CreatePaymentCommand
 from app.domain.enums import Currency, PaymentStatus
-from app.domain.exceptions import InvalidPaymentData
+from app.domain.exceptions import InvalidPaymentData, NaiveDatetime
 from app.domain.hashing import compute_request_hash
 from app.domain.money import to_cents
 from app.domain.outbox import PAYMENT_CREATED, OutboxMessage
@@ -143,7 +143,7 @@ class TestPayment:
         assert a.id < b.id
 
     def test_rejects_naive_datetime(self) -> None:
-        with pytest.raises(ValueError, match="timezone-aware"):
+        with pytest.raises(NaiveDatetime, match="timezone-aware"):
             Payment.new(BASE_CMD, GOLDEN_HASH, datetime(2026, 1, 1))
 
     def test_accepts_non_utc_aware_datetime(self) -> None:

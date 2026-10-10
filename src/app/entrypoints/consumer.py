@@ -37,8 +37,9 @@ from app.core.config import (
 from app.core.logging import setup_logging
 from app.domain.exceptions import ProcessingError
 from app.infrastructure.broker.connection import make_broker
+from app.infrastructure.broker.failure_headers import Delivery
 from app.infrastructure.broker.messages import PaymentCreatedEvent
-from app.infrastructure.broker.retry import Delivery, FailureRouter
+from app.infrastructure.broker.retry import FailureRouter
 from app.infrastructure.broker.topology import PAYMENTS_EXCHANGE, PAYMENTS_QUEUE, declare_topology
 from app.infrastructure.db.engine import create_engine, create_sessionmaker
 from app.infrastructure.db.uow import SqlUnitOfWork

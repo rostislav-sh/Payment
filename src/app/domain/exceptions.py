@@ -16,6 +16,10 @@ class InvalidStatusTransition(DomainError, ValueError):
     """A status change the payment lifecycle does not allow (only pending -> final)."""
 
 
+class NaiveDatetime(DomainError, ValueError):
+    """A datetime without a timezone where the domain requires an aware one (UTC)."""
+
+
 class PaymentNotFound(DomainError):
     def __init__(self, payment_id: UUID) -> None:
         super().__init__(f"payment {payment_id} not found")

@@ -1,12 +1,15 @@
-"""Helpers shared by the integration tests: domain factories and in-loop Alembic runs."""
+"""Helpers shared by the integration tests: domain factories, in-loop Alembic runs, RabbitMQ."""
 
 import asyncio
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+import aio_pika
+import httpx
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import Connection, text
@@ -90,3 +93,50 @@ def upgrade_head(connection: Connection) -> None:
 
 def downgrade_base(connection: Connection) -> None:
     command.downgrade(_alembic_config(connection), "base")
+
+
+# --- RabbitMQ --------------------------------------------------------------------------------
+
+RABBITMQ_IMAGE = "rabbitmq:4.3-management"  # keep in sync with docker-compose.yml
+RABBITMQ_USER = "guest"
+RABBITMQ_PASSWORD = "guest"
+
+
+@dataclass(frozen=True, slots=True)
+class RabbitMQEndpoints:
+    amqp_url: str
+    management_url: str
+
+
+async def wait_for_rabbitmq(endpoints: RabbitMQEndpoints, *, within: float = 90) -> None:
+    """Poll until RabbitMQ accepts AMQP connections and the management API answers.
+
+    Docker Desktop publishes the port before the broker listens (connections get reset),
+    so a successful AMQP handshake is the only reliable readiness signal.
+    """
+    async with asyncio.timeout(within):
+        while True:
+            try:
+                connection = await aio_pika.connect(endpoints.amqp_url, timeout=5)
+            except Exception:  # any failure means "not ready yet"
+                await asyncio.sleep(0.5)
+                continue
+            await connection.close()
+            break
+        async with httpx.AsyncClient(auth=(RABBITMQ_USER, RABBITMQ_PASSWORD)) as client:
+            while True:
+                try:
+                    response = await client.get(f"{endpoints.management_url}/api/overview")
+                    if response.status_code == 200:
+                        return
+                except httpx.HTTPError:
+                    pass
+                await asyncio.sleep(0.5)
+
+
+async def get_management_json(endpoints: RabbitMQEndpoints, path: str) -> Any:
+    """GET ``path`` (e.g. ``/api/queues/%2F/payments.new``) from the management HTTP API."""
+    async with httpx.AsyncClient(auth=(RABBITMQ_USER, RABBITMQ_PASSWORD)) as client:
+        response = await client.get(f"{endpoints.management_url}{path}")
+    response.raise_for_status()
+    return response.json()

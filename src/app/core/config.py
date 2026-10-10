@@ -60,6 +60,11 @@ class ConsumerSettings(_Base):
         return self
 
 
+class WebhookMockSettings(_Base):
+    # Share of webhooks answered with 500 at random (demo of retries and the DLQ).
+    webhook_mock_fail_rate: float = Field(default=0.0, ge=0, le=1)
+
+
 @lru_cache
 def get_logging_settings() -> LoggingSettings:
     return LoggingSettings()
@@ -90,6 +95,11 @@ def get_consumer_settings() -> ConsumerSettings:
     return ConsumerSettings()
 
 
+@lru_cache
+def get_webhook_mock_settings() -> WebhookMockSettings:
+    return WebhookMockSettings()
+
+
 def clear_settings_cache() -> None:
     for getter in (
         get_logging_settings,
@@ -98,5 +108,6 @@ def clear_settings_cache() -> None:
         get_api_settings,
         get_relay_settings,
         get_consumer_settings,
+        get_webhook_mock_settings,
     ):
         getter.cache_clear()

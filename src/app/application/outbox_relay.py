@@ -8,7 +8,8 @@ idempotent (the payment consumer is).
 import logging
 
 from app.application.clock import Clock, utc_now
-from app.application.ports.publisher import BrokerUnavailable, EventPublisher, EventRejected
+from app.application.errors import BrokerUnavailable, EventRejected
+from app.application.ports.publisher import EventPublisher
 from app.application.ports.uow import UnitOfWorkFactory
 from app.application.results import RelayBatchResult
 

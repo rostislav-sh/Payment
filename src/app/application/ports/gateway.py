@@ -3,12 +3,7 @@
 from typing import Protocol
 
 from app.domain.enums import PaymentStatus
-from app.domain.exceptions import TransientProcessingError
 from app.domain.payment import Payment
-
-
-class GatewayUnavailable(TransientProcessingError):
-    """The gateway could not be reached; the payment stays pending and is retried."""
 
 
 class PaymentGateway(Protocol):

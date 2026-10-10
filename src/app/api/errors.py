@@ -14,7 +14,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.application.ports.uow import StorageUnavailable
+from app.application.errors import StorageUnavailable
 from app.domain.exceptions import IdempotencyConflict, InvalidPaymentData, PaymentNotFound
 
 logger = logging.getLogger(__name__)

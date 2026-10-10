@@ -12,7 +12,7 @@ from aio_pika.exceptions import AMQPError, DeliveryError
 from aiormq.exceptions import ChannelInvalidStateError
 from faststream.rabbit import RabbitBroker, RabbitExchange
 
-from app.application.ports.publisher import BrokerUnavailable, EventRejected
+from app.application.errors import BrokerUnavailable, EventRejected
 
 PUBLISH_TIMEOUT_SECONDS = 5.0
 

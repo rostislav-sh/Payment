@@ -5,15 +5,6 @@ from types import TracebackType
 from typing import Protocol, Self
 
 from app.application.ports.repositories import OutboxRepository, PaymentRepository
-from app.domain.exceptions import TransientProcessingError
-
-
-class StorageUnavailable(TransientProcessingError):
-    """The database could not be reached or the connection broke mid-transaction.
-
-    Raised by the unit of work instead of driver errors; the transaction was rolled back.
-    The consumer retries the message, the API answers 503.
-    """
 
 
 class UnitOfWork(Protocol):

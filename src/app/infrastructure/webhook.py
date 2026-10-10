@@ -4,7 +4,7 @@ import asyncio
 
 import httpx
 
-from app.application.ports.webhook import WebhookRejected, WebhookUnavailable
+from app.application.errors import WebhookRejected, WebhookUnavailable
 from app.domain.payment import Payment
 
 WEBHOOK_EVENT = "payment.processed"

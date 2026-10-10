@@ -6,7 +6,7 @@ from typing import Self
 from sqlalchemy import exc as sa_exc
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.application.ports.uow import StorageUnavailable
+from app.application.errors import StorageUnavailable
 from app.infrastructure.db.repositories import SqlOutboxRepository, SqlPaymentRepository
 
 

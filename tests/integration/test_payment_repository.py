@@ -11,7 +11,7 @@ from app.domain.enums import Currency, PaymentStatus
 from app.domain.exceptions import InvalidStatusTransition
 from app.domain.payment import Payment
 from app.infrastructure.db.models import PaymentModel
-from tests.integration.support import NOW, UowFactory, make_payment
+from tests.integration.support import NOW, UowFactory, make_payment, wait_for_lock_wait
 
 pytestmark = pytest.mark.integration
 
@@ -167,7 +167,7 @@ async def test_mark_processed_rejects_non_final_status(uow_factory: UowFactory) 
 
 @pytest.mark.parametrize("first_commits", [True, False])
 async def test_concurrent_insert_with_same_key(
-    uow_factory: UowFactory, first_commits: bool
+    uow_factory: UowFactory, engine: AsyncEngine, first_commits: bool
 ) -> None:
     # Two transactions race on one Idempotency-Key: the second INSERT waits on the unique
     # index; if the first commits it gets DO NOTHING and then sees the committed row,
@@ -184,7 +184,7 @@ async def test_concurrent_insert_with_same_key(
     async with uow_factory() as uow:
         assert await uow.payments.insert_if_absent(first)
         task = asyncio.create_task(insert_second())
-        await asyncio.sleep(0.3)
+        await wait_for_lock_wait(engine)
         assert not task.done(), "second INSERT must wait for the first transaction"
         if first_commits:
             await uow.commit()

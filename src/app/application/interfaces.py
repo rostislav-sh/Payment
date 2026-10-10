@@ -75,4 +75,4 @@ class UnitOfWork(Protocol):
     async def rollback(self) -> None: ...
 
 
-UnitOfWorkFactory = Callable[[], UnitOfWork]
+type UnitOfWorkFactory = Callable[[], UnitOfWork]

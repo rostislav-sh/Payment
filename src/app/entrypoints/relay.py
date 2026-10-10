@@ -57,14 +57,14 @@ async def run(relay: OutboxRelay, stop: asyncio.Event, poll_interval: float) -> 
             logger.exception("relay iteration failed")
             delay = backoff.next()
         else:
-            delay = _next_delay(result, relay.batch_size, poll_interval, backoff)
+            delay = next_delay(result, relay.batch_size, poll_interval, backoff)
         if delay:
             # Sleep, but wake up immediately on shutdown.
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(stop.wait(), delay)
 
 
-def _next_delay(
+def next_delay(
     result: RelayBatchResult, batch_size: int, poll_interval: float, backoff: Backoff
 ) -> float:
     if result.aborted or (result.fetched and not result.published):

@@ -28,7 +28,10 @@ from typing import Self
 from uuid import UUID
 
 from app.application.clock import Clock, utc_now
+from app.application.ports.gateway import PaymentGateway
+from app.application.ports.publisher import EventPublisher
 from app.application.ports.uow import UnitOfWorkFactory
+from app.application.ports.webhook import WebhookSender
 from app.domain.enums import FINAL_STATUSES, PaymentStatus
 from app.domain.exceptions import InvalidStatusTransition
 from app.domain.outbox import OutboxMessage
@@ -319,3 +322,56 @@ class FakeOutboxRepository:
 
 # Static check (mypy): the fakes satisfy the application ports.
 _port_check: UnitOfWorkFactory = FakeStore().uow_factory()
+
+
+# --- other ports ----------------------------------------------------------------------------
+
+
+class FakePublisher:
+    """EventPublisher: records published messages; ``failures`` maps outbox id -> exception."""
+
+    def __init__(self, failures: dict[int, Exception] | None = None) -> None:
+        self.published: list[OutboxMessage] = []
+        self.failures = failures or {}
+
+    async def publish(self, message: OutboxMessage) -> None:
+        assert message.id is not None
+        if message.id in self.failures:
+            raise self.failures[message.id]
+        self.published.append(message)
+
+
+class FakeGateway:
+    """PaymentGateway with scripted outcomes (or exceptions), counting calls."""
+
+    def __init__(self, *outcomes: PaymentStatus | Exception) -> None:
+        self._outcomes = list(outcomes) or [PaymentStatus.SUCCEEDED]
+        self.calls: list[UUID] = []
+
+    async def process(self, payment: Payment) -> PaymentStatus:
+        self.calls.append(payment.id)
+        outcome = self._outcomes.pop(0) if len(self._outcomes) > 1 else self._outcomes[0]
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+
+class FakeWebhook:
+    """WebhookSender with scripted failures (consumed one per call), recording deliveries."""
+
+    def __init__(self, *failures: Exception) -> None:
+        self._failures = list(failures)
+        self.sent: list[Payment] = []
+        self.attempts = 0
+
+    async def send(self, payment: Payment) -> None:
+        self.attempts += 1
+        if self._failures:
+            raise self._failures.pop(0)
+        self.sent.append(copy.deepcopy(payment))
+
+
+# Static checks (mypy): the fakes satisfy the ports.
+_publisher_check: EventPublisher = FakePublisher()
+_gateway_check: PaymentGateway = FakeGateway()
+_webhook_check: WebhookSender = FakeWebhook()

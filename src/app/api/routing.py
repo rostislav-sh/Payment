@@ -18,7 +18,13 @@ from fastapi.routing import APIRoute
 class DecimalJSONRequest(Request):
     async def json(self) -> Any:
         if not hasattr(self, "_json"):
-            self._json = json.loads(await self.body(), parse_float=Decimal)
+            body = await self.body()
+            try:
+                self._json = json.loads(body, parse_float=Decimal)
+            except UnicodeDecodeError as exc:
+                # Not UTF-8 (e.g. a Windows shell sending cp1251): report it like any other
+                # malformed JSON (422 validation_error) instead of FastAPI's generic 400.
+                raise json.JSONDecodeError("Body is not valid UTF-8", "", exc.start) from exc
         return self._json
 
 

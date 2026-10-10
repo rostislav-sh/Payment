@@ -81,11 +81,8 @@ services:
     depends_on:
       <<: *after-migrations
     healthcheck:
-      test:
-        - CMD
-        - python
-        - -c
-        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"
+      # The runtime image has no curl/wget: the probe is a Python one-liner.
+      test: ["CMD", "python", "-c", "import urllib.request as r; r.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
       interval: 10s
       timeout: 3s
       retries: 5

@@ -10,8 +10,10 @@ from typing import Any
 
 import aio_pika
 import httpx
+from aio_pika import IncomingMessage
 from alembic import command
 from alembic.config import Config
+from faststream.rabbit import RabbitBroker, RabbitQueue
 from sqlalchemy import Connection, text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -140,3 +142,16 @@ async def get_management_json(endpoints: RabbitMQEndpoints, path: str) -> Any:
         response = await client.get(f"{endpoints.management_url}{path}")
     response.raise_for_status()
     return response.json()
+
+
+async def receive(
+    broker: RabbitBroker, queue: RabbitQueue, *, within: float = 5
+) -> IncomingMessage:
+    """Poll ``queue`` (basic.get, auto-ack) until a message arrives or ``within`` seconds pass."""
+    declared = await broker.declare_queue(queue)
+    async with asyncio.timeout(within):
+        while True:
+            message = await declared.get(no_ack=True, fail=False)
+            if message is not None:
+                return message
+            await asyncio.sleep(0.05)

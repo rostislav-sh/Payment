@@ -322,6 +322,15 @@ async def test_nan_in_metadata_is_rejected(client: httpx.AsyncClient, store: Fak
     assert store.payment_list() == []
 
 
+async def test_body_that_is_not_utf8_is_422(client: httpx.AsyncClient, store: FakeStore) -> None:
+    raw = json.dumps(body(description="Оплата"), ensure_ascii=False).encode("cp1251")
+    response = await client.post(
+        PAYMENTS, content=raw, headers={**headers(), "Content-Type": "application/json"}
+    )
+    assert_error(response, 422, "validation_error")
+    assert store.payment_list() == []
+
+
 async def test_amount_sent_as_json_number_keeps_every_cent(client: httpx.AsyncClient) -> None:
     # A float parser would turn this into 1234567890123456.8 (bodies use Decimal floats).
     raw = json.dumps(body()).replace('"amount": "100.00"', '"amount": 1234567890123456.78')

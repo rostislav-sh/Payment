@@ -7,7 +7,6 @@ from collections.abc import AsyncIterator
 import aio_pika
 import pytest
 import pytest_asyncio
-from aio_pika import IncomingMessage
 from aio_pika.exceptions import PublishError
 from faststream.rabbit import RabbitBroker, RabbitQueue
 
@@ -22,7 +21,7 @@ from app.infrastructure.broker.topology import (
     RETRY_QUEUES,
     declare_topology,
 )
-from tests.integration.support import RabbitMQEndpoints, get_management_json
+from tests.integration.support import RabbitMQEndpoints, get_management_json, receive
 
 pytestmark = pytest.mark.integration
 
@@ -51,19 +50,6 @@ async def _empty_queues(broker: RabbitBroker) -> None:
     for queue in ALL_QUEUES:
         declared = await broker.declare_queue(queue)
         await declared.purge()
-
-
-async def receive(
-    broker: RabbitBroker, queue: RabbitQueue, *, within: float = 5
-) -> IncomingMessage:
-    """Poll ``queue`` (basic.get, auto-ack) until a message arrives or ``within`` seconds pass."""
-    declared = await broker.declare_queue(queue)
-    async with asyncio.timeout(within):
-        while True:
-            message = await declared.get(no_ack=True, fail=False)
-            if message is not None:
-                return message
-            await asyncio.sleep(0.05)
 
 
 async def queue_size(broker: RabbitBroker, queue: RabbitQueue) -> int:

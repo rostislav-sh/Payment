@@ -4,8 +4,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, Response, status
 
 from app.api.dependencies import get_payment_service, verify_api_key
-from app.api.errors import ErrorResponse, ValidationErrorResponse
 from app.api.routing import DecimalJSONRoute
+from app.api.schemas import ErrorResponse, ValidationErrorResponse
 from app.api.v1.schemas import CreatePaymentRequest, PaymentCreatedResponse, PaymentResponse
 from app.application.payment_service import PaymentService
 

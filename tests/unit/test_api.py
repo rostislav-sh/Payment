@@ -19,7 +19,8 @@ from fastapi import FastAPI
 
 from app.api.app import create_app
 from app.api.dependencies import get_payment_service
-from app.application.payment_service import CreatePaymentResult, PaymentService
+from app.application.payment_service import PaymentService
+from app.application.results import CreatePaymentResult
 from app.domain.commands import CreatePaymentCommand
 from app.infrastructure.db.engine import create_engine
 from tests.unit.fakes import FakeStore

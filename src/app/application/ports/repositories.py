@@ -1,10 +1,8 @@
-"""Ports of the application layer. Infrastructure implements them; services depend only on
-these Protocols, so tests can substitute in-memory fakes."""
+"""Repository ports: persistence of payments and outbox events (never commit themselves)."""
 
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from datetime import datetime
-from types import TracebackType
-from typing import Protocol, Self
+from typing import Protocol
 from uuid import UUID
 
 from app.domain.enums import PaymentStatus
@@ -49,30 +47,3 @@ class OutboxRepository(Protocol):
     async def register_failure(self, message_id: int, error: str) -> None:
         """attempts += 1, last_error = error (truncated)."""
         ...
-
-
-class UnitOfWork(Protocol):
-    # Read-only in the protocol so implementations may expose concrete repository types.
-    @property
-    def payments(self) -> PaymentRepository: ...
-
-    @property
-    def outbox(self) -> OutboxRepository: ...
-
-    async def __aenter__(self) -> Self: ...
-
-    async def __aexit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc: BaseException | None,
-        tb: TracebackType | None,
-    ) -> None:
-        """Rolls back unless commit() was called; always closes the session."""
-        ...
-
-    async def commit(self) -> None: ...
-
-    async def rollback(self) -> None: ...
-
-
-type UnitOfWorkFactory = Callable[[], UnitOfWork]

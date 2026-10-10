@@ -7,7 +7,8 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.application.payment_service import CreatePaymentResult, PaymentService
+from app.application.payment_service import PaymentService
+from app.application.results import CreatePaymentResult
 from app.domain.exceptions import IdempotencyConflict, PaymentNotFound
 from app.domain.hashing import compute_request_hash
 from app.domain.outbox import PAYMENT_CREATED

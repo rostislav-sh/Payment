@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from testcontainers.community.postgres import PostgresContainer
 from testcontainers.core.container import DockerContainer
 
-from app.application.interfaces import UnitOfWorkFactory
+from app.application.ports.uow import UnitOfWorkFactory
 from app.infrastructure.db.engine import create_engine, create_sessionmaker
 from app.infrastructure.db.uow import SqlUnitOfWork
 from tests.integration.support import (

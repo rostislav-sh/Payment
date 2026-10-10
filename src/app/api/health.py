@@ -3,13 +3,12 @@
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
-from typing import Literal
 
 from fastapi import APIRouter, Request, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
 
-from app.api.errors import ErrorResponse, error_response
+from app.api.errors import error_response
+from app.api.schemas import ErrorResponse, StatusResponse
 
 logger = logging.getLogger(__name__)
 
@@ -17,12 +16,7 @@ READY_TIMEOUT_SECONDS = 3.0
 
 router = APIRouter(tags=["health"])
 
-
 DatabaseProbe = Callable[[], Awaitable[None]]
-
-
-class StatusResponse(BaseModel):
-    status: Literal["ok", "ready"] = Field(examples=["ok"])
 
 
 @router.get(

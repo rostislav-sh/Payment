@@ -1,11 +1,11 @@
 """Use cases of the HTTP API: create a payment idempotently and read it back."""
 
 import logging
-from dataclasses import dataclass
 from uuid import UUID
 
 from app.application.clock import Clock, utc_now
-from app.application.interfaces import UnitOfWorkFactory
+from app.application.ports.uow import UnitOfWorkFactory
+from app.application.results import CreatePaymentResult
 from app.domain.commands import CreatePaymentCommand
 from app.domain.exceptions import IdempotencyConflict, PaymentNotFound
 from app.domain.hashing import compute_request_hash
@@ -13,12 +13,6 @@ from app.domain.outbox import OutboxMessage
 from app.domain.payment import Payment
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass(frozen=True, slots=True)
-class CreatePaymentResult:
-    payment: Payment
-    replayed: bool  # an existing payment returned for a repeated idempotency key
 
 
 class PaymentService:

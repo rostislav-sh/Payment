@@ -1,4 +1,4 @@
-"""In-memory implementations of the application ports (interfaces.py) for unit tests.
+"""In-memory implementations of the application ports (app.application.ports) for unit tests.
 
 Semantics follow the SQL implementations:
 
@@ -28,7 +28,7 @@ from typing import Self
 from uuid import UUID
 
 from app.application.clock import Clock, utc_now
-from app.application.interfaces import UnitOfWorkFactory
+from app.application.ports.uow import UnitOfWorkFactory
 from app.domain.enums import FINAL_STATUSES, PaymentStatus
 from app.domain.exceptions import InvalidStatusTransition
 from app.domain.outbox import OutboxMessage

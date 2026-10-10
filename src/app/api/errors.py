@@ -12,7 +12,6 @@ from typing import Any
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.domain.exceptions import IdempotencyConflict, InvalidPaymentData, PaymentNotFound
@@ -24,32 +23,6 @@ VALIDATION_ERROR = "validation_error"
 
 class Unauthorized(Exception):
     """The X-API-Key header is missing or does not match."""
-
-
-class ErrorDetail(BaseModel):
-    field: str = Field(examples=["body.amount"])
-    message: str = Field(examples=["Input should be greater than 0"])
-
-
-class ErrorBody(BaseModel):
-    code: str = Field(examples=["payment_not_found"])
-    message: str
-
-
-class ValidationErrorBody(ErrorBody):
-    details: list[ErrorDetail]
-
-
-class ErrorResponse(BaseModel):
-    """Error body of every non-2xx response except validation errors."""
-
-    error: ErrorBody
-
-
-class ValidationErrorResponse(BaseModel):
-    """Error body of a 422 caused by request validation."""
-
-    error: ValidationErrorBody
 
 
 def error_response(

@@ -5,8 +5,8 @@ from fastapi import Depends, Request, Security
 from fastapi.security import APIKeyHeader
 
 from app.api.errors import Unauthorized
-from app.application.interfaces import UnitOfWorkFactory
 from app.application.payment_service import PaymentService
+from app.application.ports.uow import UnitOfWorkFactory
 from app.infrastructure.db.uow import SqlUnitOfWork
 
 # auto_error=False: a missing header reaches verify_api_key, so every auth failure gets the

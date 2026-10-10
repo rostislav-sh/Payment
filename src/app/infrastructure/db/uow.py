@@ -10,7 +10,7 @@ from app.application.ports.uow import StorageUnavailable
 from app.infrastructure.db.repositories import SqlOutboxRepository, SqlPaymentRepository
 
 
-def is_connection_error(error: BaseException) -> bool:
+def _is_connection_error(error: BaseException) -> bool:
     """Errors a later attempt can fix: the database is down, restarting or unreachable.
 
     Integrity/programming/data errors are bugs and are deliberately not included.
@@ -56,7 +56,7 @@ class SqlUnitOfWork:
         # close() rolls back whatever was not committed and returns the connection to the
         # pool; a failure here never masks the original exception from the block.
         await self._active_session().close()
-        if exc is not None and is_connection_error(exc):
+        if exc is not None and _is_connection_error(exc):
             raise StorageUnavailable(f"database unavailable: {type(exc).__name__}") from exc
 
     async def commit(self) -> None:

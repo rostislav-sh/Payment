@@ -8,8 +8,11 @@ once (outbox at-least-once, consumer retries, redelivery after a crash):
    (WHERE status = 'pending'); if another delivery won, use the status from the database;
 3. if final and the webhook was not sent yet: send it, then mark it sent.
 
-So a retry after a failed webhook repeats only the webhook, never the processing. The gateway
-call and the HTTP request run outside database transactions.
+So a retry after a failed webhook repeats only the webhook, never the processing.
+
+Three short units of work instead of one transaction: the gateway call (2-5 s) and the HTTP
+request run between them, so no connection or row lock is held while waiting, and each
+committed step is a checkpoint a redelivery continues from.
 """
 
 import logging
@@ -49,14 +52,18 @@ class ProcessPayment:
                 processed_now = await uow.payments.mark_processed(
                     payment.id, outcome, self._clock()
                 )
+                # Re-read in the same transaction, in both cases: the stored status and
+                # processed_at are what the webhook reports (after a lost race the stored
+                # outcome differs from ours).
+                stored = await uow.payments.get_by_id(payment.id)
                 await uow.commit()
+            if stored is None:
+                raise PaymentMissing(payment.id)
+            payment = stored
             if processed_now:
                 logger.info("payment processed payment_id=%s status=%s", payment.id, outcome)
             else:
                 logger.info("payment already processed concurrently payment_id=%s", payment.id)
-            # Re-read in both cases: the stored status and processed_at are what the webhook
-            # reports (after a lost race the stored outcome differs from ours).
-            payment = await self._load(payment_id)
 
         webhook_sent_now = False
         if payment.needs_webhook():

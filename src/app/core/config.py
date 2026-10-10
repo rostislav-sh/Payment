@@ -37,7 +37,9 @@ class BrokerSettings(_Base):
 
 
 class ApiSettings(_Base):
-    api_key: SecretStr = Field(min_length=1)
+    # Printable ASCII without spaces: servers strip header whitespace and decode as latin-1,
+    # so any other key could never match.
+    api_key: SecretStr = Field(min_length=1, pattern=r"^[!-~]+$")
 
 
 class RelaySettings(_Base):

@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.enums import FINAL_STATUSES, PaymentStatus
+from app.domain.exceptions import InvalidStatusTransition
 from app.domain.outbox import OutboxMessage
 from app.domain.payment import Payment
 from app.infrastructure.db.mappers import (
@@ -59,7 +60,7 @@ class SqlPaymentRepository:
         self, payment_id: UUID, status: PaymentStatus, processed_at: datetime
     ) -> bool:
         if status not in FINAL_STATUSES:
-            raise ValueError(f"mark_processed needs a final status, got {status}")
+            raise InvalidStatusTransition(f"mark_processed needs a final status, got {status}")
         stmt = (
             update(PaymentModel)
             .where(

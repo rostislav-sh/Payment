@@ -5,6 +5,17 @@ class DomainError(Exception):
     """Base class for domain errors. Mapped to HTTP codes only in the API layer."""
 
 
+class InvalidPaymentData(DomainError, ValueError):
+    """Payment data breaks a domain invariant (amount, metadata).
+
+    The API validates input first, so reaching this is unexpected; mapped to 422, not 500.
+    """
+
+
+class InvalidStatusTransition(DomainError, ValueError):
+    """A status change the payment lifecycle does not allow (only pending -> final)."""
+
+
 class PaymentNotFound(DomainError):
     def __init__(self, payment_id: UUID) -> None:
         super().__init__(f"payment {payment_id} not found")

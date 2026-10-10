@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.domain.enums import Currency, PaymentStatus
+from app.domain.exceptions import InvalidStatusTransition
 from app.domain.payment import Payment
 from app.infrastructure.db.models import PaymentModel
 from tests.integration.support import NOW, UowFactory, make_payment
@@ -160,7 +161,7 @@ async def test_mark_processed_rejects_non_final_status(uow_factory: UowFactory) 
     payment = make_payment()
     await _save(uow_factory, payment)
     async with uow_factory() as uow:
-        with pytest.raises(ValueError, match="final status"):
+        with pytest.raises(InvalidStatusTransition, match="final status"):
             await uow.payments.mark_processed(payment.id, PaymentStatus.PENDING, NOW)
 
 

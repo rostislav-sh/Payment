@@ -2,6 +2,7 @@ import hashlib
 import json
 
 from app.domain.commands import CreatePaymentCommand
+from app.domain.exceptions import InvalidPaymentData
 from app.domain.money import to_cents
 
 
@@ -17,7 +18,7 @@ def compute_request_hash(cmd: CreatePaymentCommand) -> str:
     The hash is persisted, so changing the canonical form breaks idempotency for stored
     keys; a golden test pins it.
 
-    Raises ValueError if metadata is not plain JSON (non-str keys, NaN, Decimal, ...).
+    Raises InvalidPaymentData if metadata is not plain JSON (non-str keys, NaN, Decimal, ...).
     """
     canonical = {
         "amount": str(to_cents(cmd.amount)),
@@ -34,6 +35,6 @@ def compute_request_hash(cmd: CreatePaymentCommand) -> str:
             ensure_ascii=False,
             allow_nan=False,
         )
-    except TypeError as exc:
-        raise ValueError(f"metadata is not JSON-serializable: {exc}") from exc
+    except (TypeError, ValueError) as exc:  # ValueError: NaN/Infinity with allow_nan=False
+        raise InvalidPaymentData(f"metadata is not JSON-serializable: {exc}") from exc
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()

@@ -8,6 +8,7 @@ import pytest
 
 from app.domain.commands import CreatePaymentCommand
 from app.domain.enums import Currency, PaymentStatus
+from app.domain.exceptions import InvalidPaymentData
 from app.domain.hashing import compute_request_hash
 from app.domain.money import to_cents
 from app.domain.outbox import PAYMENT_CREATED, OutboxMessage
@@ -78,7 +79,7 @@ class TestRequestHash:
         ],
     )
     def test_non_json_metadata_is_rejected(self, metadata: dict[object, object]) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(InvalidPaymentData):
             compute_request_hash(replace(BASE_CMD, metadata=metadata))  # type: ignore[arg-type]
 
 
@@ -107,7 +108,7 @@ class TestMoney:
         ],
     )
     def test_rejects_invalid(self, raw: str, match: str) -> None:
-        with pytest.raises(ValueError, match=match):
+        with pytest.raises(InvalidPaymentData, match=match):
             to_cents(Decimal(raw))
 
 
@@ -150,7 +151,7 @@ class TestPayment:
         assert Payment.new(BASE_CMD, GOLDEN_HASH, msk).created_at == NOW
 
     def test_rejects_invalid_amount(self) -> None:
-        with pytest.raises(ValueError, match="decimal places"):
+        with pytest.raises(InvalidPaymentData, match="decimal places"):
             Payment.new(replace(BASE_CMD, amount=Decimal("1.001")), GOLDEN_HASH, NOW)
 
     @pytest.mark.parametrize(

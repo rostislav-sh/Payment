@@ -24,7 +24,10 @@ class PaymentRepository(Protocol):
     async def mark_processed(
         self, payment_id: UUID, status: PaymentStatus, processed_at: datetime
     ) -> bool:
-        """Set final status only if the payment is still pending. True if updated."""
+        """Set final status only if the payment is still pending. True if updated.
+
+        Raises InvalidStatusTransition if ``status`` is not final.
+        """
         ...
 
     async def mark_webhook_sent(self, payment_id: UUID, sent_at: datetime) -> bool:

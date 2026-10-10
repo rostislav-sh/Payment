@@ -19,6 +19,3 @@ htmlcov/
 # IDE
 .idea/
 .vscode/
-
-# Throwaway tests (see plan, step 11)
-tests/scratch/

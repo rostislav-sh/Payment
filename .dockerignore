@@ -18,4 +18,3 @@ build
 .env.*
 !.env.example
 # tests/ is NOT ignored: the test stage needs it.
-tests/scratch

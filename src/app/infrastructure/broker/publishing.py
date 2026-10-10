@@ -25,6 +25,7 @@ async def publish_confirmed(
     routing_key: str,
     message_id: str | None = None,
     headers: dict[str, Any] | None = None,
+    content_type: str | None = None,
 ) -> None:
     """Publish and return after the broker confirmed the message.
 
@@ -43,6 +44,7 @@ async def publish_confirmed(
                 mandatory=True,  # with on_return_raises: unroutable raises, never vanishes
                 message_id=message_id,
                 headers=headers,
+                content_type=content_type,  # None: FastStream infers it from the body
                 timeout=PUBLISH_TIMEOUT_SECONDS,
             )
     except DeliveryError as exc:  # basic.return (PublishError) or basic.nack

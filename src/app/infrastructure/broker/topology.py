@@ -24,7 +24,7 @@ DLQ_NAME = "payments.new.dlq"
 PAYMENT_CREATED_ROUTING_KEY = PAYMENT_CREATED
 
 # Logical retries are counted by our own `x-attempt` header (set by the consumer on every
-# retry publish, step 7) rather than `x-death`, whose semantics changed between versions.
+# retry publish, see broker/retry.py) rather than `x-death`, whose semantics changed.
 MAX_RETRIES = 3
 # Delay before retry attempt 1, 2, 3 (exponential backoff). TTLs live in code, not in a policy:
 # simple to read and test; changing one requires re-creating the retry queue.

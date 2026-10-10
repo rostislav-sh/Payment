@@ -5,9 +5,14 @@ Prefetch (CONSUMER_PREFETCH) bounds how many payments are processed concurrently
 FastStream handles SIGTERM/SIGINT: it stops consuming and waits for running handlers
 (graceful_timeout) before closing the connection; the lifespan then closes our resources.
 
-Error handling (until retry/DLQ routing is added): the subscriber uses REJECT_ON_ERROR, so a
-message whose handler raises is rejected without requeue and dead-lettered to the DLQ. Never
-nack with requeue: RabbitMQ 4.x does not count it against the delivery limit.
+Error handling:
+* malformed message or permanent error -> DLQ with the error history (FailureRouter);
+* transient error -> delayed retry (1/2/4 s), after 3 retries -> DLQ;
+* in all these cases the message is acked only after the new copy was confirmed;
+* anything else (a bug, or publishing the copy failed) propagates: REJECT_ON_ERROR rejects the
+  message without requeue and the queue dead-letters it (safety net, no error history); if the
+  channel is already dead, the message is redelivered instead (counted by the delivery limit).
+Never nack with requeue: RabbitMQ 4.x does not count it against the delivery limit.
 """
 
 import asyncio
@@ -20,6 +25,7 @@ import httpx
 from faststream import AckPolicy, FastStream
 from faststream.message import StreamMessage
 from faststream.rabbit.annotations import RabbitMessage
+from pydantic import ValidationError
 
 from app.application.process_payment import ProcessPayment
 from app.core.config import (
@@ -29,8 +35,10 @@ from app.core.config import (
     get_logging_settings,
 )
 from app.core.logging import setup_logging
+from app.domain.exceptions import ProcessingError
 from app.infrastructure.broker.connection import make_broker
 from app.infrastructure.broker.messages import PaymentCreatedEvent
+from app.infrastructure.broker.retry import Delivery, FailureRouter
 from app.infrastructure.broker.topology import PAYMENTS_EXCHANGE, PAYMENTS_QUEUE, declare_topology
 from app.infrastructure.db.engine import create_engine, create_sessionmaker
 from app.infrastructure.db.uow import SqlUnitOfWork
@@ -59,6 +67,7 @@ def create_consumer_app() -> FastStream:
         prefetch=broker_settings.consumer_prefetch,
     )
     process: ProcessPayment | None = None  # set by the lifespan before consuming starts
+    failures = FailureRouter(broker)
 
     @contextlib.asynccontextmanager
     async def lifespan() -> AsyncIterator[None]:
@@ -96,8 +105,22 @@ def create_consumer_app() -> FastStream:
     )
     async def handle_payment_created(message: RabbitMessage) -> None:
         assert process is not None, "consuming starts only after the lifespan set it up"
-        event = PaymentCreatedEvent.model_validate_json(message.body)
-        result = await process.execute(event.payment_id)
+        delivery = Delivery(
+            body=message.body,
+            headers=message.headers,
+            message_id=message.message_id,
+            content_type=message.content_type,
+        )
+        try:
+            event = PaymentCreatedEvent.model_validate_json(message.body)
+        except ValidationError as exc:  # malformed message: a retry cannot fix it
+            await failures.route(delivery, exc)
+            return  # returning acks the original
+        try:
+            result = await process.execute(event.payment_id)
+        except ProcessingError as exc:  # known failure: retry or DLQ with history
+            await failures.route(delivery, exc)
+            return
         logger.info(
             "payment handled payment_id=%s status=%s processed_now=%s webhook_sent_now=%s "
             "message_id=%s",

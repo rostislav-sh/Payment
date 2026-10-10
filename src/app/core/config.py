@@ -7,6 +7,7 @@ the API does not require RabbitMQ settings. Values come from environment variabl
 Getters are cached; tests must call ``clear_settings_cache()`` after changing env vars.
 """
 
+import re
 from functools import lru_cache
 from typing import Literal, Self
 
@@ -15,7 +16,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class _Base(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        # Settings hold secrets (API key, URLs with passwords): never echo them in errors.
+        hide_input_in_errors=True,
+    )
 
 
 class LoggingSettings(_Base):
@@ -37,9 +44,17 @@ class BrokerSettings(_Base):
 
 
 class ApiSettings(_Base):
-    # Printable ASCII without spaces: servers strip header whitespace and decode as latin-1,
-    # so any other key could never match.
-    api_key: SecretStr = Field(min_length=1, pattern=r"^[!-~]+$")
+    api_key: SecretStr
+
+    @field_validator("api_key")
+    @classmethod
+    def _printable_ascii(cls, value: SecretStr) -> SecretStr:
+        # Printable ASCII without spaces: servers strip header whitespace and decode as
+        # latin-1, so any other key could never match. (Field(pattern=...) does not apply to
+        # SecretStr, hence a validator; the message never contains the key.)
+        if not re.fullmatch(r"[!-~]+", value.get_secret_value()):
+            raise ValueError("API_KEY must be non-empty printable ASCII without spaces")
+        return value
 
 
 class RelaySettings(_Base):

@@ -1,0 +1,21 @@
+# The local venv is built for the host OS and would overwrite the image's one.
+.venv
+.git
+.idea
+.vscode
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+dist
+build
+*.egg-info
+# Secrets of local runs; compose passes configuration through environment variables.
+.env
+.env.*
+!.env.example
+# tests/ is NOT ignored: the test stage needs it.
+tests/scratch

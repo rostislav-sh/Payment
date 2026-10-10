@@ -1,3 +1,30 @@
+# Whole stack: docker compose up --build
+# Postgres and RabbitMQ alone (local debugging): docker compose up -d postgres rabbitmq
+# All ports are published on 127.0.0.1 only; host ports can be changed via *_HOST_PORT variables.
+
+x-app: &app
+  build: .
+  image: payment-service:local
+  init: true  # tini as PID 1: forwards signals and reaps zombies
+  environment:
+    # Service names, not localhost: containers talk over the compose network.
+    DATABASE_URL: postgresql+asyncpg://app:app@postgres:5432/payments
+    RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+    API_KEY: ${API_KEY:-change-me}
+    LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    RELAY_BATCH_SIZE: ${RELAY_BATCH_SIZE:-100}
+    RELAY_POLL_INTERVAL: ${RELAY_POLL_INTERVAL:-0.5}
+    CONSUMER_PREFETCH: ${CONSUMER_PREFETCH:-10}
+    WEBHOOK_TIMEOUT: ${WEBHOOK_TIMEOUT:-5}
+    GATEWAY_MIN_DELAY: ${GATEWAY_MIN_DELAY:-2}
+    GATEWAY_MAX_DELAY: ${GATEWAY_MAX_DELAY:-5}
+    GATEWAY_SUCCESS_RATE: ${GATEWAY_SUCCESS_RATE:-0.9}
+    WEBHOOK_MOCK_FAIL_RATE: ${WEBHOOK_MOCK_FAIL_RATE:-0}
+
+x-after-migrations: &after-migrations
+  migrations:
+    condition: service_completed_successfully
+
 services:
   postgres:
     image: postgres:18
@@ -6,11 +33,12 @@ services:
       POSTGRES_PASSWORD: app
       POSTGRES_DB: payments
     volumes:
-      - pgdata:/var/lib/postgresql
+      - pgdata:/var/lib/postgresql  # postgres 18 keeps PGDATA in a versioned subdirectory
     ports:
       # 5433 on the host: 5432 is often taken by a locally installed PostgreSQL.
       - "127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432"
     healthcheck:
+      # -h 127.0.0.1: not the unix socket, which answers during initdb before the DB exists.
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U app -d payments"]
       interval: 5s
       timeout: 3s
@@ -18,15 +46,85 @@ services:
 
   rabbitmq:
     image: rabbitmq:4.3-management
+    # Fixed node name + named volume: durable queues (and unprocessed events in them) survive
+    # `docker compose down` / container re-creation. RabbitMQ stores data per node name.
+    hostname: rabbitmq
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
     ports:
-      - "127.0.0.1:5672:5672"
-      - "127.0.0.1:15672:15672"
+      - "127.0.0.1:${RABBITMQ_HOST_PORT:-5672}:5672"
+      - "127.0.0.1:${RABBITMQ_UI_HOST_PORT:-15672}:15672"  # management UI, guest/guest
     healthcheck:
+      # Port connectivity, not just "ping": AMQP must accept connections.
       test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
       interval: 10s
       timeout: 10s
       retries: 10
       start_period: 20s
 
+  # One-off: applies migrations, then exits. Not in the API entrypoint, so several API
+  # replicas never migrate concurrently.
+  migrations:
+    <<: *app
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *app
+    # CMD of the image: uvicorn app.api.app:create_app --factory
+    ports:
+      - "127.0.0.1:${API_HOST_PORT:-8000}:8000"
+    restart: unless-stopped
+    depends_on:
+      <<: *after-migrations
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  # No container_name and no ports: relay and consumer can be scaled
+  # (docker compose up --scale consumer=3 --scale relay=2).
+  relay:
+    <<: *app
+    command: ["python", "-m", "app.entrypoints.relay"]
+    restart: unless-stopped  # also restarts it if RabbitMQ was not ready yet
+    stop_grace_period: 20s  # finish the current batch
+    depends_on:
+      <<: *after-migrations
+      rabbitmq:
+        condition: service_healthy
+
+  consumer:
+    <<: *app
+    command: ["python", "-m", "app.entrypoints.consumer"]
+    restart: unless-stopped
+    # > FastStream's graceful_timeout (15 s): running handlers finish instead of being killed,
+    # which would also count against the queue's delivery limit.
+    stop_grace_period: 20s
+    depends_on:
+      <<: *after-migrations
+      rabbitmq:
+        condition: service_healthy
+
+  # Demo client endpoint: create payments with webhook_url http://webhook-mock:8080/hook
+  # (?fail=500 -> retries then DLQ, ?fail=404 -> DLQ). Received: http://localhost:8001/received
+  webhook-mock:
+    <<: *app
+    command:
+      ["uvicorn", "app.entrypoints.webhook_mock:app", "--host", "0.0.0.0", "--port", "8080"]
+    ports:
+      - "127.0.0.1:${WEBHOOK_MOCK_HOST_PORT:-8001}:8080"  # /received shows payment data
+    restart: unless-stopped
+
 volumes:
   pgdata:
+  rabbitmq-data:
